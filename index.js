@@ -1,50 +1,202 @@
 var Crawler = require("crawler");
 var fs = require('fs');
 var arrayManga = new Array();
- 
-var c = new Crawler({
-    // encoding:null,
-    // jQuery:false,// set false to suppress warning message.
-    callback:function(err, res, done){
-        if(err){
-            console.error(err.stack);
-        }else{
-            var $ = res.$;
-            var tempImg = res.$("img");
-            for (let x = 0; x < tempImg.length ; x++) {
-                if (tempImg[x]['attribs']['class'] != null) {
-                    if (!tempImg[x]['attribs']['class'].includes("logo")) {
-                        arrayManga.push(tempImg[x]['attribs']['src']);
+const https = require('https'); // or 'https' for https:// URLs
+const downloadsFolder = require('downloads-folder');
+//store all result search of manga
+var mangaLists = [];
+
+let c = new Crawler();
+
+c.queue({
+    uri: "https://mangahub.io/search?q=maousama",
+    callback: function (err, res, done) {
+        if (err) console.error(err.stack);
+        let $ = res.$;
+        try {
+            $(".media-heading").each(function(i, mangaCard) {
+                var tempMap = new Map();
+                tempMap.set("title", $(mangaCard).find('a').text());
+                tempMap.set("url", $(mangaCard).find('a').attr('href'));
+                // tempMap.set($(mangaCard).find('a').text(), $(mangaCard).find('a').attr('href'));
+                mangaLists.push(tempMap);
+                // mangas[i] = [$(mangaCard).find('a').text(), $(mangaCard).find('a').attr('href')];
+            });
+
+            $(".media-body").each(function(i, mangaChapter) {
+                var tempMap = new Map();
+                let chaptersSplit = $(mangaChapter).find('p').text().split(" ");
+                tempMap = mangaLists[i];
+                tempMap.set("totalChapter", chaptersSplit[0] + " Chapters");
+                mangaLists[i] = tempMap;
+                // tempMap.set("title", $(mangaCard).find('p').text());
+                // tempMap.set("url", $(mangaCard).find('a').attr('href'));
+                // mangaLists.push(tempMap);
+            });
+            // $ is Cheerio by default 
+            //a lean implementation of core jQuery designed specifically for the server 
+            if (mangaLists.length > 0 ) {
+                console.log(mangaLists);
+            } else {
+                console.log("No result!");
+            }
+
+            var urlChapter = mangaLists[1].get("url") + "/chapter-1";
+            c.queue({
+                uri: urlChapter,
+                encoding:null,
+                jQuery:false,// set false to suppress warning message.
+                rateLimit: 2000,
+                maxConnections: 1,
+                callback: function (err, res, done) {
+                    console.log("URL " + mangaLists[1].get("url"));
+                    if (err) console.error(err.stack);
+                    let $ = res.$;
+                    try {
+                        $(".img").each(function(i, mangaChapter) {
+                            var tempMap = new Map();
+                            let chaptersSplit = $(mangaChapter).find('p').text().split(" ");
+                            tempMap = mangaLists[i];
+                            tempMap.set("totalChapter", chaptersSplit[0] + " Chapters");
+                            mangaLists[i] = tempMap;
+                            // tempMap.set("title", $(mangaCard).find('p').text());
+                            // tempMap.set("url", $(mangaCard).find('a').attr('href'));
+                            // mangaLists.push(tempMap);
+                        });
+                        // var tempImg = res.$("img");
+                        // for (let x = 0; x < tempImg.length ; x++) {
+                        //     if (tempImg[x]['attribs']['class'] != null) {
+                        //         if (!tempImg[x]['attribs']['class'].includes("logo")) {
+                        //             arrayManga.push(tempImg[x]['attribs']['src']);
+                        //         }
+                        //     }
+                        // }
+                        // if (arrayManga.length > 0) {
+                        //     for (let index = 0; index < arrayManga.length; index++) {
+                        //         const file = fs.createWriteStream(downloadsFolder() + "\\"  + "Manga_Trial" + index + ".png");
+                        //         const request = https.get(arrayManga[index], function(response) {
+                        //             //prevent memory leak with response.statusCode and setTimeout
+                        //             if (response.statusCode === 200) {
+                        //                 response.pipe(file);
+                        //                 file.on('finish', function() {
+                        //                     file.close();  // close() is async, call cb after close completes.
+                        //                 });
+                        //             }
+                        //             request.setTimeout(60000, function() { // if after 60s file not downlaoded, we abort a request 
+                        //                 request.abort();
+                        //             });
+                        //         });
+                        //     }
+                        // }
+                    } catch (e) {
+                        console.error(`Encountered an error crawling. Aborting crawl.`);
+                        done()
+            
                     }
+                    done();
                 }
-            }
-            if (arrayManga.length > 0) {
-                for (let index = 0; index < arrayManga.length; index++) {
-                    c.queue({
-                        uri:arrayManga[index],
-                        filename:"Manga_Trial" + index + ".png",
-                        encoding:null,
-                        jQuery:false,// set false to suppress warning message.
-                        callback: function (error, res, done) {
-                            if(error){
-                                console.log(error);
-                            }else{
-                                fs.createWriteStream(res.options.filename).write(res.body);
-                            }
-                            done();
-                        }
-                    });
-                }
-            }
-            // fs.createWriteStream(res.options.filename).write(res.body);
+            });
+        } catch (e) {
+            console.error(`Encountered an error crawling. Aborting crawl.`);
+            done()
+
         }
         done();
     }
 });
 
-c.queue({
-    uri:"https://mangahub.io/chapter/uzaki-chan-wa-asobitai/chapter-65"
-});
+
+
+// var c = new Crawler({
+//     // encoding:null,
+//     // jQuery:false,// set false to suppress warning message.
+//     callback:function(err, res, done){
+//         if(err){
+//             console.error(err.stack);
+//         }else{
+//             var $ = res.$;
+//             var tempImg = res.$("img");
+//             for (let x = 0; x < tempImg.length ; x++) {
+//                 if (tempImg[x]['attribs']['class'] != null) {
+//                     if (!tempImg[x]['attribs']['class'].includes("logo")) {
+//                         arrayManga.push(tempImg[x]['attribs']['src']);
+//                     }
+//                 }
+//             }
+//             if (arrayManga.length > 0) {
+//                 for (let index = 0; index < arrayManga.length; index++) {
+//                     const file = fs.createWriteStream(downloadsFolder() + "\\"  + "Manga_Trial" + index + ".png");
+//                     const request = https.get(arrayManga[index], function(response) {
+//                         //prevent memory leak with response.statusCode and setTimeout
+//                         if (response.statusCode === 200) {
+//                             response.pipe(file);
+//                             file.on('finish', function() {
+//                                 file.close();  // close() is async, call cb after close completes.
+//                             });
+//                         }
+//                         request.setTimeout(60000, function() { // if after 60s file not downlaoded, we abort a request 
+//                             request.abort();
+//                         });
+//                     });
+//                     // c.queue({
+//                     //     uri:arrayManga[index],
+//                     //     filename:"Manga_Trial" + index + ".png",
+//                     //     encoding:null,
+//                     //     jQuery:false,// set false to suppress warning message.
+//                     //     callback: function (error, res, done) {
+//                     //         if(error){
+//                     //             console.log(error);
+//                     //         }else{
+//                     //             fs.createWriteStream(res.options.filename).write(res.body);
+//                     //         }
+//                     //         done();
+//                     //     }
+//                     // });
+//                 }
+//             }
+//             // fs.createWriteStream(res.options.filename).write(res.body);
+//         }
+//         done();
+//     }
+// });
+
+//download the file
+// c.queue({
+//     uri:"https://mangahub.io/chapter/uzaki-chan-wa-asobitai/chapter-65"
+// });
+
+// var c2 = new Crawler({
+//     maxConnections: 10,
+//     // This will be called for each crawled page 
+//     callback: function(error, res, done) {
+//         if (error) {
+//             console.log(error);
+//         } else {
+//             var $ = res.$;
+//             $(".media-heading").each(function(i, mangaCard) {
+//                 var tempMap = new Map();
+//                 tempMap.set($(mangaCard).find('a').text(), $(mangaCard).find('a').attr('href'));
+//                 mangaLists.push(tempMap);
+//                 // mangas[i] = [$(mangaCard).find('a').text(), $(mangaCard).find('a').attr('href')];
+//             });
+//             // $ is Cheerio by default 
+//             //a lean implementation of core jQuery designed specifically for the server 
+//             if (mangaLists.length > 0 ) {
+//                 console.log(mangaLists);
+//                 console.log(mangaLists[1]);
+//             } else {
+//                 console.log("No result!");
+//             }
+//         }
+//         done();
+//     }
+// });
+
+// c2.queue("https://mangahub.io/search?q=maousama");
+// console.log(mangaLists[1]);
+// c.queue({
+//     uri:mangaLists[1]
+// });
 
 
 // const c = new Crawler({
