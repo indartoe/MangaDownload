@@ -8,5 +8,7 @@
   },
   "author": "Shiro",
   "license": "ISC",
-  "dependencies": {}
+  "dependencies": {
+    "downloads-folder": "^3.0.1"
+  }
 }
