@@ -1,550 +1,305 @@
-var Crawler = require("crawler");
-var fs = require('fs');
-var fsRead = require('fs');
-const puppeteer = require("puppeteer");
-const http = require('http'); // or 'https' for https:// URLs
-const https = require('https'); // or 'https' for https:// URLs
-var arrayManga = new Array();
-const downloadsFolder = require('downloads-folder');
-var i = 1;
+var mangareader = require('./module/mangareader.js');
+const { prefix, token } = require("./config.json");
+const constFile = require('./const.json');
+const { Client } = require("discord.js");
+const Discord = require("discord.js");
+const bot = new Client();
 //store all result search of manga
 var mangaLists = [];
+var mangaResultsLists = [];
+var mangaChapterLists = [];
+var latestMangaLists = [];
 
-let c = new Crawler();
+bot.once("ready", () => {
+    console.log("Ready!");
+    bot.user.setActivity("use !help for help"); 
+  });
+  
+bot.once("reconnecting", () => {
+    console.log("Reconnecting!");
+});
 
-// c.queue({
-//     uri: "https://mangahub.io/search?q=maousama",
-//     callback: function (err, res, done) {
-//         if (err) console.error(err.stack);
-//         let $ = res.$;
-//         try {
-//             $(".media-heading").each(function(i, mangaCard) {
-//                 var tempMap = new Map();
-//                 tempMap.set("title", $(mangaCard).find('a').text());
-//                 tempMap.set("url", $(mangaCard).find('a').attr('href'));
-//                 // tempMap.set($(mangaCard).find('a').text(), $(mangaCard).find('a').attr('href'));
-//                 mangaLists.push(tempMap);
-//                 // mangas[i] = [$(mangaCard).find('a').text(), $(mangaCard).find('a').attr('href')];
-//             });
+bot.once("disconnect", () => {
+    console.log("Disconnect!");
+});
 
-//             $(".media-body").each(function(i, mangaChapter) {
-//                 var tempMap = new Map();
-//                 let chaptersSplit = $(mangaChapter).find('p').text().split(" ");
-//                 tempMap = mangaLists[i];
-//                 tempMap.set("totalChapter", chaptersSplit[0] + " Chapters");
-//                 mangaLists[i] = tempMap;
-//                 // tempMap.set("title", $(mangaCard).find('p').text());
-//                 // tempMap.set("url", $(mangaCard).find('a').attr('href'));
-//                 // mangaLists.push(tempMap);
-//             });
-//             // $ is Cheerio by default 
-//             //a lean implementation of core jQuery designed specifically for the server 
-//             if (mangaLists.length > 0 ) {
-//                 console.log(mangaLists);
-//             } else {
-//                 console.log("No result!");
-//             }
+bot.on("message", async message => {
+    //check whether the message is from our own bot. IMPORTANT!!
+    if (message.author.bot) return;
 
-//             var urlChapter = mangaLists[1].get("url") + "/chapter-1";
-//             c.queue({
-//                 uri: urlChapter,
-//                 encoding:null,
-//                 jQuery:false,// set false to suppress warning message.
-//                 rateLimit: 2000,
-//                 maxConnections: 1,
-//                 callback: function (err, res, done) {
-//                     console.log("URL " + mangaLists[1].get("url"));
-//                     if (err) console.error(err.stack);
-//                     let $ = res.$;
-//                     try {
-//                         $(".img").each(function(i, mangaChapter) {
-//                             var tempMap = new Map();
-//                             let chaptersSplit = $(mangaChapter).find('p').text().split(" ");
-//                             tempMap = mangaLists[i];
-//                             tempMap.set("totalChapter", chaptersSplit[0] + " Chapters");
-//                             mangaLists[i] = tempMap;
-//                             // tempMap.set("title", $(mangaCard).find('p').text());
-//                             // tempMap.set("url", $(mangaCard).find('a').attr('href'));
-//                             // mangaLists.push(tempMap);
-//                         });
-//                         // var tempImg = res.$("img");
-//                         // for (let x = 0; x < tempImg.length ; x++) {
-//                         //     if (tempImg[x]['attribs']['class'] != null) {
-//                         //         if (!tempImg[x]['attribs']['class'].includes("logo")) {
-//                         //             arrayManga.push(tempImg[x]['attribs']['src']);
-//                         //         }
-//                         //     }
-//                         // }
-//                         // if (arrayManga.length > 0) {
-//                         //     for (let index = 0; index < arrayManga.length; index++) {
-//                         //         const file = fs.createWriteStream(downloadsFolder() + "\\"  + "Manga_Trial" + index + ".png");
-//                         //         const request = https.get(arrayManga[index], function(response) {
-//                         //             //prevent memory leak with response.statusCode and setTimeout
-//                         //             if (response.statusCode === 200) {
-//                         //                 response.pipe(file);
-//                         //                 file.on('finish', function() {
-//                         //                     file.close();  // close() is async, call cb after close completes.
-//                         //                 });
-//                         //             }
-//                         //             request.setTimeout(60000, function() { // if after 60s file not downlaoded, we abort a request 
-//                         //                 request.abort();
-//                         //             });
-//                         //         });
-//                         //     }
-//                         // }
-//                     } catch (e) {
-//                         console.error(`Encountered an error crawling. Aborting crawl.`);
-//                         done()
-            
-//                     }
-//                     done();
-//                 }
-//             });
-//         } catch (e) {
-//             console.error(`Encountered an error crawling. Aborting crawl.`);
-//             done()
+    //check whether the message is start with prefix command
+    if (!message.content.startsWith(prefix)) return;
 
-//         }
-//         done();
-//     }
-// });
+    if (!message.guild.me.hasPermission(['SEND_MESSAGES','EMBED_LINKS','ADD_REACTIONS'])) {
+        console.log("I dont have permission");
+        return;
+    }
+    
+    if (message.content.startsWith(`${prefix}dm`)) {
+        downloadManga(message);
+    } else if (message.content.startsWith(`${prefix}sm`)) {
+        searchManga(message);
+    } else if (message.content.startsWith(`${prefix}sd`)) {
+        searchDownload(message);
+    } else if (message.content.startsWith(`${prefix}help`)) {
+        helpManga(message);
+    } else {
+        message.channel.send("Please input a valid command!");
+    }
+});
 
-// //
-// var fs = require('fs');
+async function downloadManga(message) {
+    console.log("START::Download Manga command");
+    console.log("user want to download manga");
+    const args = message.content.split(" ");
 
-// var i = 1;
+    if (!args[1]) {
+        message.channel.send("You need to provide a link");
+        console.log("END::Download Manga command");
+        return;
+    }
+    console.log("URL provided:" + args[1]);
+    try {
+        message.channel.send("Generating and downloading manga files from " + args[1] + ".Loading :zzz:")
+        .then(async msg => {
+            //have return value whether have error or not
+            var feedback = await mangareader.loadMangaImage(args[1], "directURL");  
+            msg.delete();
+            if (feedback == "Link not valid or chapter not found") {
+                message.channel.send("Link " + args[1] + " not valid for downloading manga!");
+            } else if (feedback == null) {
+                message.channel.send("Download manga from " + args[1] + " finished!");
+            }
+            console.log("END::Download Manga command");
+        });
+    } catch (error) {
+        message.channel.send(error);
+        console.error(error);
+        return;
+    }
+}
 
-// loadMangaImage();
+async function searchManga(message) {
+    console.log("START::Search Manga command");
+    console.log("user want to search manga");
+    if (message.content.startsWith(`${prefix}sm `)) {
+        var mangaTitleString = message.content.substr(`${prefix}sm `.length);
+        mangaChapterLists = await waitMangaChapter(message, mangaTitleString);
+        console.log("END::Search Manga command");
+    } else {
+        message.channel.send('You need to provide manga title');
+        console.log("END::Search Manga command");
+    }
+}
 
-// function loadMangaImage() {
-//     (async () => {
-//         try {
-//           // Initialize Puppeteer
-//           const browser = await puppeteer.launch();
-//           const page = await browser.newPage();
-      
-//           // Specify comic issue page url
-//           await page.goto(
-//             "http://mangareader.cc/chapter/komi-san-wa-komyushou-desu-chapter-298#1"
-//           );
-//           console.log("page has been loaded!");
-      
-//           // While page is waiting for 1s, click on the 'Full Chapter' button and do the rest
-//         //   await page.waitFor(5000);
-//           await page.select("select.loadImgType.pull-left", "1");
-//           await page.waitFor(5000);
-//           // await page.click("button.button4");
-//           console.log("'Full Chapter' button has been clicked!");
-      
-//           // Evaluate/Compute the main task:
-//           // Here, we convert the Nodelist of images returned from the DOM into an array, then map each item and get the src attribute value, and store it in 'src' variable, which is therefore returned to be the value of 'issueSrcs' variable.
-//           const issueSrcs = await page.evaluate(() => {
-//             const srcs = Array.from(
-//               document.querySelectorAll(".lazy")
-//             ).map((image) => image.getAttribute("src"));
-//             return srcs;
-//           });
-//           // issueSrcs.split();
-//           // for (let index = 0; index < array.length; index++) {
-//           //     console.log(issueSrcs[index]);
-//           // }
-//           console.log("Page has been evaluated!");
-      
-//           // Persist data into data.json file
-//         //   fs.writeFileSync("./data.json", JSON.stringify(issueSrcs));
-//         //   console.log("File is created!");
-      
-//           // End Puppeteer
-//           await browser.close();
-//           for (let index = 0; index < issueSrcs.length; index++) {
-//               crawlImage(issueSrcs[index], index);
-//           }
-//         } catch (error) {
-//           console.log(error);
-//         }
-//       })();
-// }
-
-// function crawlImage(urlLink, varSequence) {
-//     const file = fs.createWriteStream("Manga_Trial" + varSequence + ".png");
-//     const request = http.get(urlLink, function(response) {
-//         response.pipe(file);
-//     });
-
-
-//new code 
-
-loadMangaImage();
-
-function loadMangaImage() {
-    (async () => {
-        try {
-          // Initialize Puppeteer
-          const browser = await puppeteer.launch();
-          const page = await browser.newPage();
-      
-          // Specify comic issue page url
-          await page.goto(
-            "http://mangareader.cc/chapter/komi-san-wa-komyushou-desu-chapter-298#1"
-          );
-          console.log("page has been loaded!");
-      
-          // While page is waiting for 1s, click on the 'Full Chapter' button and do the rest
-        //   await page.waitFor(5000);
-          await page.select("select.loadImgType.pull-left", "1");
-          await page.waitFor(5000);
-          // await page.click("button.button4");
-          console.log("'Full Chapter' button has been clicked!");
-      
-          // Evaluate/Compute the main task:
-          // Here, we convert the Nodelist of images returned from the DOM into an array, then map each item and get the src attribute value, and store it in 'src' variable, which is therefore returned to be the value of 'issueSrcs' variable.
-          const issueSrcs = await page.evaluate(() => {
-            const srcs = Array.from(
-              document.querySelectorAll(".lazy")
-            ).map((image) => image.getAttribute("src"));
-            return srcs;
-          });
-          // issueSrcs.split();
-          // for (let index = 0; index < array.length; index++) {
-          //     console.log(issueSrcs[index]);
-          // }
-          console.log("Page has been evaluated!");
-      
-          // Persist data into data.json file
-        //   fs.writeFileSync("./data.json", JSON.stringify(issueSrcs));
-        //   console.log("File is created!");
-      
-          // End Puppeteer
-          await browser.close();
-          for (let index = 0; index < issueSrcs.length; index++) {
-              crawlImage(issueSrcs[index], index);
-          }
-        } catch (error) {
-          console.log(error);
+async function searchDownload(message) {
+    console.log("START::Search Download Manga command");
+    console.log("user want to search manga and download");
+    if (message.content.startsWith(`${prefix}sd `)) {
+        var mangaTitleChapterString = message.content.substr(`${prefix}sd `.length);
+        
+        //split manga title and chapter (; separated)
+        var mangaChapterSplit = mangaTitleChapterString.split(";");
+        var reqMangaChapters = String(mangaChapterSplit[1]).split(",");
+        console.log("User want to find " + mangaChapterSplit[0] + ", chapter(s): " + reqMangaChapters);
+        for (let b = 0; b < reqMangaChapters.length; b++) {
+            //check if the input has non-number value
+            if (isNaN(reqMangaChapters[b])) {
+                console.log(reqMangaChapters[b] + " is not a number");
+                message.channel.send(reqMangaChapters[b] + " is not a number. Please provide number between " + 1 + " to " + mangaChapterLists.length + ".Cancelling operation!");
+                console.log("END::Search Download Manga command");
+                return;
+            } 
         }
-      })();
+        
+        //after find all the manga results, immediately fetch the first manga from the result
+        console.log("user want to find manga " + mangaChapterSplit[0]);
+        mangaResultsLists = await mangareader.searchManga(mangaChapterSplit[0]);
+        
+        for (let i = 0; i < reqMangaChapters.length; i++) {
+            //get the first manga title result and replace the space with - to generate the chapter manga url
+                message.channel.send("Generating and downloading manga files " + mangaResultsLists[0].get("title") + " chapter " + reqMangaChapters[i] + ". Now loading :zzz:")
+                    .then(async msg => {
+                        try {
+                            let mangaTitle = mangaResultsLists[0].get("title").split(" ").join("-");
+                            var urlManga = "http://mangareader.cc/chapter/"+mangaTitle+"-chapter-" + reqMangaChapters[i];
+                            message.channel.send("Trying to download " + mangaResultsLists[0].get("title") + " chapter " + reqMangaChapters[i]);
+                            var feedback = await mangareader.loadMangaImage(urlManga, "searchURL");
+                            console.log("feedback " +feedback);
+                            if (feedback == "Chapter Not Found") {
+                                message.channel.send("Chapter " + mangaResultsLists[0].get("title") + " chapter " + reqMangaChapters[i] + " not found!");
+                                console.log("END::Search Download Manga command");
+                            } else if (feedback == null){
+                                message.channel.send("Download manga " + mangaResultsLists[0].get("title") + " chapter " + reqMangaChapters[i] + " has been finished!");
+                                console.log("END::Search Download Manga command");
+                            }
+                            msg.delete();
+                        } catch (error) {
+                            console.log("search download error occured");
+                            if (error.message == "Chapter Not Found") {
+                                message.channel.send("Chapter " + mangaResultsLists[0].get("title") + " chapter " + reqMangaChapters[i] + " not found!");
+                            } else {
+                                message.channel.send(error);
+                            }
+                        }
+                });
+        }
+    } else {
+        message.channel.send(`You need to provide manga title and chapters. The format is ${prefix}sd <manga title>;<chapter(s), if many comma separated`);
+        console.log("END::Search Download Manga command");
+    }
 }
 
-function crawlImage(urlLink, varSequence) {
-    const file = fs.createWriteStream("Manga_Trial" + varSequence + ".png");
-    const request = http.get(urlLink, function(response) {
-        response.pipe(file);
+async function helpManga(message) {
+    message.channel.send("Only mangareader.cc supported \n " +
+        "List of commands: \n " +
+        "-!dm <url link manga chapters> => download manga directly through link eg. !dm http://mangareader.cc/chapter/Arifureta-Shokugyou-De-Sekai-Saikyou-chapter-34\n" +
+        "-!sm <manga title> => search for manga" +
+        "-!sd <manga title>;<chapter(s), if many chapters comma(,) separated> => search download manga \n " +
+        "nb::this command take first manga title from the results.");
+}
+
+//method used after selecting manga
+async function waitMangaChapter(message, mangaTitleString) {
+    message.channel.send("Fetching all results of " + mangaTitleString +". Now loading :zzz:")
+            .then(async msg => {
+                //searching manga
+                mangaResultsLists = await mangareader.searchManga(mangaTitleString);
+                let mangaResultString = "Results of " + mangaTitleString + ":";
+                for (let i = 0; i < mangaResultsLists.length; i++) {
+                    mangaResultString = mangaResultString + "\n" + (i + 1) + " - " + mangaResultsLists[i].get("title");
+                }
+                mangaResultString = mangaResultString + "\n" + "Please type number on the left side of the manga title to select the manga.";
+                
+                //send message result of manga based on user keyword
+                message.channel.send(mangaResultString);
+                msg.delete();
+
+                //wait user to select result of searched manga
+                message.channel.awaitMessages(m => m.author.id == message.author.id,
+                    {max: 1, time: 300000}).then(async collected => {
+                        //check if user feedback is number
+                        if (isNaN(collected.first().content)) {
+                            message.channel.send("Need to provide number between " + 1 + " to " + mangaResultsLists.length + ".Cancelling operation!");
+                        } else {
+                            var indexContent = (parseInt(collected.first().content) - 1);
+                            if (indexContent > mangaResultsLists.length) {
+                                message.channel.send("Need to provide number between " + 1 + " to " + mangaResultsLists.length + ". Cancelling operation!");
+                            } else {
+                                console.log(mangaResultsLists[indexContent]);
+                                console.log(mangaResultsLists[indexContent].get("url"));
+                                message.channel.send("Fetching chapters of " + mangaResultsLists[indexContent].get("title") + ". Now loading :zzz:");
+
+                                //put chapters result of selected manga
+                                let mangaChapterResultString = "Results of " + mangaResultsLists[indexContent].get("title") + ":";
+                                //fetching all chapters of selected manga
+                                mangaChapterLists = await mangareader.selectManga(mangaResultsLists[indexContent].get("url"));
+                                let page = 1;
+                                let pages = Math.trunc(mangaChapterLists.length/20);
+
+                                for (let a = (0+(20*(page-1))); a < (1*20); a++) {
+                                    mangaChapterResultString = mangaChapterResultString + "\n" + (a + 1) + " - " + mangaChapterLists[a].get("titleChapter");
+                                }
+
+                                //create message with pagination
+                                const embed = new Discord.MessageEmbed() // Define a new embed
+                                .setColor(0xffffff) // Set the color
+                                .setFooter(`Page ${page} of ${pages}, ${mangaChapterLists.length} chapters\nPlease type number on the left side of the manga title to select the manga. Can input multiple chapters with comma(,) separated. Eg. 1,3,5`)
+                                .setDescription(mangaChapterResultString);
+
+                                message.channel.send(embed).then(msg => {
+
+                                    msg.react('⬅').then( r => {
+                                        msg.react('➡')
+                                
+                                        // Filters
+                                        const backwardsFilter = (reaction, user) => reaction.emoji.name === '⬅' && user.id === message.author.id;
+                                        const forwardsFilter = (reaction, user) => reaction.emoji.name === '➡' && user.id === message.author.id;
+                                
+                                        const backwards = msg.createReactionCollector(backwardsFilter, {timer: 6000});
+                                        const forwards = msg.createReactionCollector(forwardsFilter, {timer: 6000});
+                                
+                                        //when click previous
+                                        backwards.on('collect', r => {
+                                            console.log("user click previous page");
+                                            if (page === 1) return;
+                                            page--;
+
+                                            mangaChapterResultString = "Results of " + mangaResultsLists[indexContent].get("title") + ":";
+                                            for (let a = (0+(20*(page-1))); a < (page*20); a++) {
+                                                mangaChapterResultString = mangaChapterResultString + "\n" + (a + 1) + " - " + mangaChapterLists[a].get("titleChapter");
+                                            }
+                                            console.log(mangaChapterResultString);
+                                            embed.setDescription(mangaChapterResultString);
+                                            embed.setFooter(`Page ${page} of ${pages}, ${mangaChapterLists.length} chapters\nPlease type number on the left side of the manga title to select the manga. Can input multiple chapters with comma(,) separated. Eg. 1,3,5`)
+                                            msg.edit(embed)
+                                        })
+                                
+                                        //when click next page
+                                        forwards.on('collect', r => {
+                                            console.log("user click next page");
+                                            if (page === pages.length) return;
+                                            page++;
+                                            mangaChapterResultString = "Results of " + mangaResultsLists[indexContent].get("title") + ":";
+                                            for (let a = (0+(20*(page-1))); a < (page*20); a++) {
+                                                mangaChapterResultString = mangaChapterResultString + "\n" + (a + 1) + " - " + mangaChapterLists[a].get("titleChapter");
+                                            }
+                                            console.log(mangaChapterResultString);
+                                            embed.setDescription(mangaChapterResultString);
+                                            embed.setFooter(`Page ${page} of ${pages}, ${mangaChapterLists.length} chapters\nPlease type number on the left side of the manga title to select the manga. Can input multiple chapters with comma(,) separated. Eg. 1,3,5`);
+                                            msg.edit(embed)
+                                        })
+                                    })
+                                });
+                                
+                                await chapterSelected(message);
+                            }
+                        }   
+                }).catch((error) => {
+                    console.log(error);
+                    message.reply('No answer after 5 minutes, operation canceled.');
+                });
+        });
+}
+
+//method used after selecting chapter 
+async function chapterSelected(message) {
+    message.channel.awaitMessages(m => m.author.id == message.author.id,
+        {max: 1, time: 300000}).then(async collected => {
+            //split user input based on ','
+            let chapterArr = collected.first().content.split(",");
+            for (let b = 0; b < chapterArr.length; b++) {
+                const inputChapter = chapterArr[b];
+                //check if the input has non-number value
+                if (isNaN(inputChapter)) {
+                    message.channel.send(inputChapter + " is not a number. Please provide number between " + 1 + " to " + mangaChapterLists.length + ".Cancelling operation!");
+                    return;
+                } else {
+                    //check if the input has number that out of range
+                    var indexContent = (parseInt(inputChapter) - 1);
+                    if (indexContent > mangaChapterLists.length) {
+                        message.channel.send(inputChapter + " out of index range. Please provide number between " + 1 + " to " + mangaChapterLists.length + ".Cancelling operation!");
+                        return;
+                    } 
+                }  
+            }
+
+            //split from above because there's problem when downloading batch manga
+            //download manga based on selected manga and chapters
+            for (let c = 0; c < chapterArr.length; c++) {
+                let inputChapter1 = (parseInt(chapterArr[c]) - 1);
+                message.channel.send("Trying to download " + mangaChapterLists[inputChapter1].get("urlChapter"));
+                message.channel.send("Generating and downloading manga files " + mangaChapterLists[inputChapter1].get("titleChapter") + ". Now loading :zzz:")
+                    .then(async msg => {
+                        await mangareader.loadMangaImage(mangaChapterLists[inputChapter1].get("urlChapter"), "searchURL");
+                        msg.delete();
+                        message.channel.send("Download manga " + mangaChapterLists[inputChapter1].get("titleChapter") + " has been finished!");
+                });
+            }
+    }).catch((error) => {
+        console.log(error);
+        message.reply('No answer after 5 minutes, operation canceled.');
     });
-    // var c = new Crawler({
-    //     filename:"Manga_Trial" + varSequence + ".png",
-    //     encoding:null,
-    //     jQuery:false,// set false to suppress warning message.
-    //     callback:function(err, res, done){
-    //         if(err){
-    //             console.error(err.stack);
-    //         }else{
-    //             fs.createWriteStream(res.options.filename).write(res.body);
-    //         }
-    //         done();
-    //     }
-    // });
-    
-    // c.queue({
-    //     uri:urlLink
-    // });
 }
 
-// const c = new Crawler({
-//     maxConnections : 10,
-//     // This will be called for each crawled page
-//     callback : function (error, res, done) {
-//         if(error){
-//             console.log(error);
-//         }else{
-//             var $ = res.$;
-//             // $ is Cheerio by default
-//             //a lean implementation of core jQuery designed specifically for the server
-//             console.log($("title").text());
-//         }
-//         done();
-//     }
-// });
- 
-// // Queue just one URL, with default callback
-// // c.queue('https://code.visualstudio.com/docs/nodejs/debugging-recipes');
- 
-// // Queue a list of URLs
-// c.queue(['http://www.google.com/','http://www.yahoo.com']);
- 
-// // Queue URLs with custom callbacks & parameters
-// // c.queue([{
-// //     uri: 'https://mangakakalot.com/chapter/ny922152/chapter_189',
-// //     // jQuery: false,
- 
-// //     // The global callback won't be called
-// //     callback: function (error, res, done) {
-// //         if(error){
-// //             console.log(error);
-// //         }else{
-// //             console.log('Grabbed', res.body.length, 'bytes');
-// //             fs.createWriteStream(res.options.filename).write(res.body);
-// //         }
-// //         done();
-// //     }
-// // }]);
-
-// c.queue([{
-//     //unit test work with httpbin http2 server. It could be used for test
-//     uri: 'https://mangahub.io/chapter/uzaki-chan-wa-asobitai/chapter-65',
-//     method: 'GET',
-//     http2: true, //set http2 to be true will make a http2 request
-//     callback: (error, response, done) => {
-//         if (error) {
-//             console.error(error);
-//             return done();
-//         }
-
-//         // console.log(`inside callback`);
-//         // console.log(response.body);
-//         fs.createWriteStream(response.options.filename).write(response.body);
-//         return done();
-//     }
-// }]);
- 
-// Queue some HTML code directly without grabbing (mostly for tests)
-// c.queue([{
-//     html: '<p>This is a <strong>test</strong></p>'
-// }])-;
-
-    // var c = new Crawler({
-    //     filename:"Manga_Trial" + varSequence + ".png",
-    //     encoding:null,
-    //     jQuery:false,// set false to suppress warning message.
-    //     callback:function(err, res, done){
-    //         if(err){
-    //             console.error(err.stack);
-    //         }else{
-    //             fs.createWriteStream(res.options.filename).write(res.body);
-    //         }
-    //         done();
-    //     }
-    // });
-    
-    // c.queue({
-    //     uri:urlLink
-    // });
-}
-
-// const c = new Crawler({
-//     maxConnections : 10,
-//     // This will be called for each crawled page
-//     callback : function (error, res, done) {
-//         if(error){
-//             console.log(error);
-//         }else{
-//             var $ = res.$;
-//             // $ is Cheerio by default
-//             //a lean implementation of core jQuery designed specifically for the server
-//             console.log($("title").text());
-//         }
-//         done();
-//     }
-// });
- 
-// // Queue just one URL, with default callback
-// // c.queue('https://code.visualstudio.com/docs/nodejs/debugging-recipes');
- 
-// // Queue a list of URLs
-// c.queue(['http://www.google.com/','http://www.yahoo.com']);
- 
-// // Queue URLs with custom callbacks & parameters
-// // c.queue([{
-// //     uri: 'https://mangakakalot.com/chapter/ny922152/chapter_189',
-// //     // jQuery: false,
- 
-// //     // The global callback won't be called
-// //     callback: function (error, res, done) {
-// //         if(error){
-// //             console.log(error);
-// //         }else{
-// //             console.log('Grabbed', res.body.length, 'bytes');
-// //             fs.createWriteStream(res.options.filename).write(res.body);
-// //         }
-// //         done();
-// //     }
-// // }]);
-
-// c.queue([{
-//     //unit test work with httpbin http2 server. It could be used for test
-//     uri: 'https://mangahub.io/chapter/uzaki-chan-wa-asobitai/chapter-65',
-//     method: 'GET',
-//     http2: true, //set http2 to be true will make a http2 request
-//     callback: (error, response, done) => {
-//         if (error) {
-//             console.error(error);
-//             return done();
-//         }
-
-//         // console.log(`inside callback`);
-//         // console.log(response.body);
-//         fs.createWriteStream(response.options.filename).write(response.body);
-//         return done();
-//     }
-// }]);
- 
-// Queue some HTML code directly without grabbing (mostly for tests)
-// c.queue([{
-//     html: '<p>This is a <strong>test</strong></p>'
-// }])-;
-
-
-
-// var c = new Crawler({
-//     // encoding:null,
-//     // jQuery:false,// set false to suppress warning message.
-//     callback:function(err, res, done){
-//         if(err){
-//             console.error(err.stack);
-//         }else{
-//             var $ = res.$;
-//             var tempImg = res.$("img");
-//             for (let x = 0; x < tempImg.length ; x++) {
-//                 if (tempImg[x]['attribs']['class'] != null) {
-//                     if (!tempImg[x]['attribs']['class'].includes("logo")) {
-//                         arrayManga.push(tempImg[x]['attribs']['src']);
-//                     }
-//                 }
-//             }
-//             if (arrayManga.length > 0) {
-//                 for (let index = 0; index < arrayManga.length; index++) {
-//                     const file = fs.createWriteStream(downloadsFolder() + "\\"  + "Manga_Trial" + index + ".png");
-//                     const request = https.get(arrayManga[index], function(response) {
-//                         //prevent memory leak with response.statusCode and setTimeout
-//                         if (response.statusCode === 200) {
-//                             response.pipe(file);
-//                             file.on('finish', function() {
-//                                 file.close();  // close() is async, call cb after close completes.
-//                             });
-//                         }
-//                         request.setTimeout(60000, function() { // if after 60s file not downlaoded, we abort a request 
-//                             request.abort();
-//                         });
-//                     });
-//                     // c.queue({
-//                     //     uri:arrayManga[index],
-//                     //     filename:"Manga_Trial" + index + ".png",
-//                     //     encoding:null,
-//                     //     jQuery:false,// set false to suppress warning message.
-//                     //     callback: function (error, res, done) {
-//                     //         if(error){
-//                     //             console.log(error);
-//                     //         }else{
-//                     //             fs.createWriteStream(res.options.filename).write(res.body);
-//                     //         }
-//                     //         done();
-//                     //     }
-//                     // });
-//                 }
-//             }
-//             // fs.createWriteStream(res.options.filename).write(res.body);
-//         }
-//         done();
-//     }
-// });
-
-//download the file
-// c.queue({
-//     uri:"https://mangahub.io/chapter/uzaki-chan-wa-asobitai/chapter-65"
-// });
-
-// var c2 = new Crawler({
-//     maxConnections: 10,
-//     // This will be called for each crawled page 
-//     callback: function(error, res, done) {
-//         if (error) {
-//             console.log(error);
-//         } else {
-//             var $ = res.$;
-//             $(".media-heading").each(function(i, mangaCard) {
-//                 var tempMap = new Map();
-//                 tempMap.set($(mangaCard).find('a').text(), $(mangaCard).find('a').attr('href'));
-//                 mangaLists.push(tempMap);
-//                 // mangas[i] = [$(mangaCard).find('a').text(), $(mangaCard).find('a').attr('href')];
-//             });
-//             // $ is Cheerio by default 
-//             //a lean implementation of core jQuery designed specifically for the server 
-//             if (mangaLists.length > 0 ) {
-//                 console.log(mangaLists);
-//                 console.log(mangaLists[1]);
-//             } else {
-//                 console.log("No result!");
-//             }
-//         }
-//         done();
-//     }
-// });
-
-// c2.queue("https://mangahub.io/search?q=maousama");
-// console.log(mangaLists[1]);
-// c.queue({
-//     uri:mangaLists[1]
-// });
-
-
-// const c = new Crawler({
-//     maxConnections : 10,
-//     // This will be called for each crawled page
-//     callback : function (error, res, done) {
-//         if(error){
-//             console.log(error);
-//         }else{
-//             var $ = res.$;
-//             // $ is Cheerio by default
-//             //a lean implementation of core jQuery designed specifically for the server
-//             console.log($("title").text());
-//         }
-//         done();
-//     }
-// });
- 
-// // Queue just one URL, with default callback
-// // c.queue('https://code.visualstudio.com/docs/nodejs/debugging-recipes');
- 
-// // Queue a list of URLs
-// c.queue(['http://www.google.com/','http://www.yahoo.com']);
- 
-// // Queue URLs with custom callbacks & parameters
-// // c.queue([{
-// //     uri: 'https://mangakakalot.com/chapter/ny922152/chapter_189',
-// //     // jQuery: false,
- 
-// //     // The global callback won't be called
-// //     callback: function (error, res, done) {
-// //         if(error){
-// //             console.log(error);
-// //         }else{
-// //             console.log('Grabbed', res.body.length, 'bytes');
-// //             fs.createWriteStream(res.options.filename).write(res.body);
-// //         }
-// //         done();
-// //     }
-// // }]);
-
-// c.queue([{
-//     //unit test work with httpbin http2 server. It could be used for test
-//     uri: 'https://mangahub.io/chapter/uzaki-chan-wa-asobitai/chapter-65',
-//     method: 'GET',
-//     http2: true, //set http2 to be true will make a http2 request
-//     callback: (error, response, done) => {
-//         if (error) {
-//             console.error(error);
-//             return done();
-//         }
-
-//         // console.log(`inside callback`);
-//         // console.log(response.body);
-//         fs.createWriteStream(response.options.filename).write(response.body);
-//         return done();
-//     }
-// }]);
- 
-// Queue some HTML code directly without grabbing (mostly for tests)
-// c.queue([{
-//     html: '<p>This is a <strong>test</strong></p>'
-// }]);
-
+bot.login(token);

@@ -9,6 +9,6 @@
   "author": "Shiro",
   "license": "ISC",
   "dependencies": {
-    "crawler": "^1.3.0"
+    "downloads-folder": "^3.0.1"
   }
 }
