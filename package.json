@@ -10,6 +10,7 @@
   "license": "ISC",
   "dependencies": {
     "discord.js": "^12.5.3",
-    "downloads-folder": "^3.0.1"
+    "downloads-folder": "^3.0.1",
+    "puppeteer": "^8.0.0"
   }
 }
