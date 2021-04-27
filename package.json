@@ -9,6 +9,7 @@
   "author": "Shiro",
   "license": "ISC",
   "dependencies": {
+    "chromium": "^3.0.2",
     "discord.js": "^12.5.3",
     "downloads-folder": "^3.0.1",
     "puppeteer": "^9.0.0"
