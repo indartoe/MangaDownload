@@ -16,7 +16,12 @@ const https = require('https'); // or 'https' for https:// URLs
  */
 async function searchManga(mangaTitle) {
     console.log("START::mangareader search Manga");
-    const browser = await puppeteer.launch({headless: true});
+    const browser = await puppeteer.launch({
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+        ],
+      });
     const page = await browser.newPage();
     try {
         console.log("Search manga:" + mangaTitle + " in mangareader");
@@ -65,7 +70,12 @@ async function searchManga(mangaTitle) {
  */
 async function selectManga(url) {
     console.log("START::mangareader select Manga");
-    const browser = await puppeteer.launch();
+    const browser = await puppeteer.launch({
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+        ],
+      });
     const page = await browser.newPage();
     try {
         console.log("Manga url: " + url);
@@ -114,7 +124,12 @@ async function loadMangaImage(mangaUrl, typeLoadImage) {
     console.log("START::mangareader loadMangaImage Manga");
     try {
         // Initialize Puppeteer
-        const browser = await puppeteer.launch();
+        const browser = await puppeteer.launch({
+            args: [
+              '--no-sandbox',
+              '--disable-setuid-sandbox',
+            ],
+          });
         const page = await browser.newPage();
     
         console.log("Manga URL:" + mangaUrl);
@@ -199,7 +214,12 @@ async function loadMangaImageLink(mangaUrl, typeLoadImage) {
     console.log("START::mangareader loadMangaImage Manga");
     try {
         // Initialize Puppeteer
-        const browser = await puppeteer.launch();
+        const browser = await puppeteer.launch({
+            args: [
+              '--no-sandbox',
+              '--disable-setuid-sandbox',
+            ],
+          });
         const page = await browser.newPage();
     
         console.log("Manga URL:" + mangaUrl);
@@ -307,7 +327,12 @@ function crawlImage(urlLink, varSequence, titleChapterManga) {
  */
 async function latestMangaRelease() {
     console.log("START::mangareader get latest manga release");
-    const browser = await puppeteer.launch();
+    const browser = await puppeteer.launch({
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+        ],
+      });
     const page = await browser.newPage();
     try {
         console.log("timeout:" + constFile.urlTimeout);
