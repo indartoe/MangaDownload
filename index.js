@@ -1,5 +1,5 @@
 var mangareader = require('./module/mangareader.js');
-const { prefix, token } = require("./config.json");
+const { prefix, answerPrefix, token } = require("./config.json");
 const constFile = require('./const.json');
 const { Client } = require("discord.js");
 const Discord = require("discord.js");
@@ -164,7 +164,7 @@ async function helpManga(message) {
     message.channel.send("Only mangareader.cc supported \n " +
         "List of commands: \n " +
         "-!dm <url link manga chapters> => download manga directly through link eg. !dm http://mangareader.cc/chapter/Arifureta-Shokugyou-De-Sekai-Saikyou-chapter-34\n" +
-        "-!sm <manga title> => search for manga" +
+        "-!sm <manga title> => search for manga \n" +
         "-!sd <manga title>;<chapter(s), if many chapters comma(,) separated and dash(-) for range> => search and download manga \n " +
         "nb::this command take first manga title from the results.");
 }
@@ -245,7 +245,7 @@ async function waitMangaChapter(message, mangaTitleString) {
                                 //create message with pagination
                                 const embed = new Discord.MessageEmbed() // Define a new embed
                                 .setColor(0xffffff) // Set the color
-                                .setFooter(`Page ${page} of ${pages}, ${mangaChapterLists.length} chapters\nThe Format are !rd <chapter> for read and !dl <chapters> for downloading manga.\nPlease type number on the left side of the manga title to select the manga. Can input multiple chapters with comma(,) or dash(-) separated. Eg. 1,3,5,8-10(only applies to download manga)`)
+                                .setFooter(`Page ${page} of ${pages}, ${mangaChapterLists.length} chapters\nThe Format are &rd <chapter> for read and &dl <chapters> for downloading manga.\nPlease type number on the left side of the manga title to select the manga. Can input multiple chapters with comma(,) or dash(-) separated. Eg. 1,3,5,8-10(only applies to download manga)`)
                                 .setDescription(mangaChapterResultString);
 
                                 message.channel.send(embed).then(msg => {
@@ -272,7 +272,7 @@ async function waitMangaChapter(message, mangaTitleString) {
                                             }
                                             console.log(mangaChapterResultString);
                                             embed.setDescription(mangaChapterResultString);
-                                            embed.setFooter(`Page ${page} of ${pages}, ${mangaChapterLists.length} chapters\nThe Format are !rd <chapter> for read and !dl <chapters> for downloading manga.\nPlease type number on the left side of the manga title to select the manga. Can input multiple chapters with comma(,) or dash(-) separated. Eg. 1,3,5,8-10(only applies to download manga)`)
+                                            embed.setFooter(`Page ${page} of ${pages}, ${mangaChapterLists.length} chapters\nThe Format are &rd <chapter> for read and &dl <chapters> for downloading manga.\nPlease type number on the left side of the manga title to select the manga. Can input multiple chapters with comma(,) or dash(-) separated. Eg. 1,3,5,8-10(only applies to download manga)`)
                                             msg.edit(embed)
                                         })
                                 
@@ -287,7 +287,7 @@ async function waitMangaChapter(message, mangaTitleString) {
                                             }
                                             console.log(mangaChapterResultString);
                                             embed.setDescription(mangaChapterResultString);
-                                            embed.setFooter(`Page ${page} of ${pages}, ${mangaChapterLists.length} chapters\nThe Format are !rd <chapter> for read and !dl <chapters> for downloading manga.\nPlease type number on the left side of the manga title to select the manga. Can input multiple chapters with comma(,) or dash(-) separated. Eg. 1,3,5,8-10(only applies to download manga)`);
+                                            embed.setFooter(`Page ${page} of ${pages}, ${mangaChapterLists.length} chapters\nThe Format are &rd <chapter> for read and &dl <chapters> for downloading manga.\nPlease type number on the left side of the manga title to select the manga. Can input multiple chapters with comma(,) or dash(-) separated. Eg. 1,3,5,8-10(only applies to download manga)`);
                                             msg.edit(embed)
                                         })
                                     })
@@ -308,10 +308,10 @@ async function chapterSelected(message) {
     message.channel.awaitMessages(m => m.author.id == message.author.id,
         {max: 1, time: 300000}).then(async collected => {
             console.log("Start::Select chapter manga");
-            //check if the command is !dl for download or !rd for read manga
-            if (collected.first().content.startsWith(`${prefix}rd `)) {
+            //check if the command is &dl for download or &rd for read manga
+            if (collected.first().content.startsWith(`${answerPrefix}rd `)) {
                 //in read manga case, only valid for 1 chapter
-                var commandChapters = collected.first().content.substr(`${prefix}rd `.length);
+                var commandChapters = collected.first().content.substr(`${answerPrefix}rd `.length);
 
                 //check if the input has non-number value
                 if (isNaN(commandChapters)) {
@@ -334,6 +334,10 @@ async function chapterSelected(message) {
                             var mangaImageURL = await mangareader.loadMangaImageLink(mangaChapterLists[inputChapter1].get("urlChapter"), "searchURL");
                             msg.delete();
 
+                            if (mangaImageURL == null) {
+                                message.channel.send("Timeout when fetching manga. Aborting");
+                                return;
+                            }
                             let page = 1;
                             let pages = mangaImageURL.length;
                             //create message with pagination
@@ -341,10 +345,9 @@ async function chapterSelected(message) {
                             .setColor(0xffffff) // Set the color
                             .setFooter(`Page ${page} of ${pages}, ${mangaImageURL.length} `)
 	                        .setImage(mangaImageURL[parseInt(page)])
-                            .setDescription("Page: " + page);
+                            .setDescription(mangaChapterLists[inputChapter1].get("titleChapter") + "Page: " + page);
 
                             message.channel.send(embed).then(msg => {
-
                                 msg.react('⬅').then( r => {
                                     msg.react('➡')
                             
@@ -364,7 +367,7 @@ async function chapterSelected(message) {
                                         console.log("URL manga: " + mangaImageURL[parseInt(page)]);
                                         
 	                                    embed.setImage(mangaImageURL[parseInt(page)]);
-                                        embed.setDescription("Page: " + page);
+                                        embed.setDescription(mangaChapterLists[inputChapter1].get("titleChapter") + "Page: " + page);
                                         embed.setFooter(`Page ${page} of ${pages}, ${mangaImageURL.length}`);
                                         msg.edit(embed)
                                     })
@@ -377,7 +380,7 @@ async function chapterSelected(message) {
 
                                         console.log("URL manga: " + mangaImageURL[parseInt(page)]);
 	                                    embed.setImage(mangaImageURL[parseInt(page)]);
-                                        embed.setDescription("Page: " + page);
+                                        embed.setDescription(mangaChapterLists[inputChapter1].get("titleChapter") + "Page: " + page);
                                         embed.setFooter(`Page ${page} of ${pages}, ${mangaImageURL.length}`);
                                         msg.edit(embed)
                                     })
@@ -387,8 +390,8 @@ async function chapterSelected(message) {
                     });
                 
                 console.log("END::Manga download command");
-            } else if(collected.first().content.startsWith(`${prefix}dl `)) {
-                var commandChapters = collected.first().content.substr(`${prefix}dl `.length);
+            } else if(collected.first().content.startsWith(`${answerPrefix}dl `)) {
+                var commandChapters = collected.first().content.substr(`${answerPrefix}dl `.length);
 
                 //split user input based on ','/and '-'
                 let chapterArr = commandChapters.split(/[,-]+/);
@@ -430,7 +433,7 @@ async function chapterSelected(message) {
                 }
                 console.log("END::Manga download command");
             } else {
-                message.channel.send('You need to provide manga title');
+                message.channel.send('You need to provide valid command');
                 console.log("END::Search Manga command");
             }
     }).catch((error) => {
