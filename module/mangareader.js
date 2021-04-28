@@ -16,7 +16,7 @@ const https = require('https'); // or 'https' for https:// URLs
  */
 async function searchManga(mangaTitle) {
     console.log("START::mangareader search Manga");
-    const browser = await puppeteer.launch();
+    const browser = await puppeteer.launch({headless: true});
     const page = await browser.newPage();
     try {
         console.log("Search manga:" + mangaTitle + " in mangareader");
@@ -189,6 +189,87 @@ async function loadMangaImage(mangaUrl, typeLoadImage) {
 }
 
 /*
+ * @Purpose this method is to get manga images
+ * @param manga chapters URL
+ * @param typeLoadImage => directURL(if user provide direct URL of manga) / searchURL(URL provided from selectManga method)
+ * @return files link
+ * @throws timeout error 
+ */
+async function loadMangaImageLink(mangaUrl, typeLoadImage) {
+    console.log("START::mangareader loadMangaImage Manga");
+    try {
+        // Initialize Puppeteer
+        const browser = await puppeteer.launch();
+        const page = await browser.newPage();
+    
+        console.log("Manga URL:" + mangaUrl);
+        console.log("URL timeout: " + constFile.urlTimeout);
+        // Specify manga issue page url
+        try {
+            await page.goto(
+                mangaUrl, {waitUntil: 'load', timeout: constFile.urlTimeout}
+            );
+        } catch (error) {
+            console.error(error); 
+        }
+        
+        console.log("page has been loaded!");
+    
+        // While page is waiting for 1s, click on the 'Full Chapter' button and do the rest
+        //in manga reader has selection box of chapter and all chapters
+        try {
+            console.log("Trying to select full chapter in the dropdown list");
+            await page.select("select.loadImgType.pull-left", "1");
+            await page.waitFor(5000);
+        } catch (error) {
+            await browser.close();
+            if (error == "Error: No node found for selector: select.loadImgType.pull-left" && typeLoadImage == "directURL") {
+                console.warn("Link not valid or chapter not found");
+                // throw 'Link not valid or chapter not found';
+                return 'Link not valid or chapter not found';
+            } else if (error == "Error: No node found for selector: select.loadImgType.pull-left" && typeLoadImage == "searchURL") {
+                console.warn("Chapter not found");
+                // throw new Error('Chapter Not Found');
+                return 'Chapter Not Found';
+            } else {
+                console.error("ERROR console :" + error);
+                throw error;
+            }
+        }
+        
+        // await page.click("button.button4");
+        console.log("'Full Chapter' has been selected!");
+
+        //get manga title
+        await page.waitForSelector('h1.chapter-title');
+        let element = await page.$('h1.chapter-title');
+        var titleChapterManga = await page.evaluate(el => el.textContent, element)
+        console.log("Title chapter manga:" + titleChapterManga);
+
+        // Evaluate/Compute the main task:
+        // Here, we convert the Nodelist of images returned from the DOM into an array, then map each item and get the src attribute value, and store it in 'src' variable, which is therefore returned to be the value of 'issueSrcs' variable.
+        const issueSrcs = await page.evaluate(() => {
+        const srcs = Array.from(
+            document.querySelectorAll(".lazy")//image element has lazy class attribute
+        ).map((image) => image.getAttribute("src"));//get src value
+        return srcs;
+        });
+        console.log("Page has been evaluated!");
+    
+        // End Puppeteer
+        await browser.close();
+        console.log("End Puppeteer");
+
+        console.log("Load manga successful!");
+        console.log("END::mangareader loadMangaImage Manga");
+        return issueSrcs;
+    } catch (error) {
+        console.log(error);
+        return null
+    }
+}
+
+/*
  * @Purpose this method is used to download image
  * @param url image link
  * @param sequence
@@ -280,6 +361,7 @@ module.exports = {
     selectManga,
     loadMangaImage,
     crawlImage,
-    latestMangaRelease
+    latestMangaRelease,
+    loadMangaImageLink
 };
 

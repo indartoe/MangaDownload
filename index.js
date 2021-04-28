@@ -203,6 +203,10 @@ async function waitMangaChapter(message, mangaTitleString) {
                 //searching manga
                 mangaResultsLists = await mangareader.searchManga(mangaTitleString);
                 let mangaResultString = "Results of " + mangaTitleString + ":";
+                if (mangaResultsLists == null) {
+                    message.channel.send("Manga " + mangaTitleString + " not found.");
+                    return;
+                }
                 for (let i = 0; i < mangaResultsLists.length; i++) {
                     mangaResultString = mangaResultString + "\n" + (i + 1) + " - " + mangaResultsLists[i].get("title");
                 }
@@ -241,7 +245,7 @@ async function waitMangaChapter(message, mangaTitleString) {
                                 //create message with pagination
                                 const embed = new Discord.MessageEmbed() // Define a new embed
                                 .setColor(0xffffff) // Set the color
-                                .setFooter(`Page ${page} of ${pages}, ${mangaChapterLists.length} chapters\nPlease type number on the left side of the manga title to select the manga. Can input multiple chapters with comma(,) separated. Eg. 1,3,5`)
+                                .setFooter(`Page ${page} of ${pages}, ${mangaChapterLists.length} chapters\nThe Format are !rd <chapter> for read and !dl <chapters> for downloading manga.\nPlease type number on the left side of the manga title to select the manga. Can input multiple chapters with comma(,) or dash(-) separated. Eg. 1,3,5,8-10(only applies to download manga)`)
                                 .setDescription(mangaChapterResultString);
 
                                 message.channel.send(embed).then(msg => {
@@ -268,7 +272,7 @@ async function waitMangaChapter(message, mangaTitleString) {
                                             }
                                             console.log(mangaChapterResultString);
                                             embed.setDescription(mangaChapterResultString);
-                                            embed.setFooter(`Page ${page} of ${pages}, ${mangaChapterLists.length} chapters\nPlease type number on the left side of the manga title to select the manga. Can input multiple chapters with comma(,) separated. Eg. 1,3,5`)
+                                            embed.setFooter(`Page ${page} of ${pages}, ${mangaChapterLists.length} chapters\nThe Format are !rd <chapter> for read and !dl <chapters> for downloading manga.\nPlease type number on the left side of the manga title to select the manga. Can input multiple chapters with comma(,) or dash(-) separated. Eg. 1,3,5,8-10(only applies to download manga)`)
                                             msg.edit(embed)
                                         })
                                 
@@ -283,7 +287,7 @@ async function waitMangaChapter(message, mangaTitleString) {
                                             }
                                             console.log(mangaChapterResultString);
                                             embed.setDescription(mangaChapterResultString);
-                                            embed.setFooter(`Page ${page} of ${pages}, ${mangaChapterLists.length} chapters\nPlease type number on the left side of the manga title to select the manga. Can input multiple chapters with comma(,) separated. Eg. 1,3,5,8-10`);
+                                            embed.setFooter(`Page ${page} of ${pages}, ${mangaChapterLists.length} chapters\nThe Format are !rd <chapter> for read and !dl <chapters> for downloading manga.\nPlease type number on the left side of the manga title to select the manga. Can input multiple chapters with comma(,) or dash(-) separated. Eg. 1,3,5,8-10(only applies to download manga)`);
                                             msg.edit(embed)
                                         })
                                     })
@@ -303,43 +307,131 @@ async function waitMangaChapter(message, mangaTitleString) {
 async function chapterSelected(message) {
     message.channel.awaitMessages(m => m.author.id == message.author.id,
         {max: 1, time: 300000}).then(async collected => {
-            //split user input based on ','/and '-'
-            let chapterArr = collected.first().content.split(/[,-]+/);
-            for (let b = 0; b < chapterArr.length; b++) {
-                console.log("Chapter of user input: " + chapterArr[b]);
-                const inputChapter = chapterArr[b];
+            console.log("Start::Select chapter manga");
+            //check if the command is !dl for download or !rd for read manga
+            if (collected.first().content.startsWith(`${prefix}rd `)) {
+                //in read manga case, only valid for 1 chapter
+                var commandChapters = collected.first().content.substr(`${prefix}rd `.length);
+
                 //check if the input has non-number value
-                if (isNaN(inputChapter)) {
-                    message.channel.send(inputChapter + " is not a number. Please provide number between " + 1 + " to " + mangaChapterLists.length + ".Cancelling operation!");
+                if (isNaN(commandChapters)) {
+                    message.channel.send(commandChapters + " is not a number. Please provide number between " + 1 + " to " + mangaChapterLists.length + ".Cancelling operation!");
                     return;
                 } else {
                     //check if the input has number that out of range
-                    var indexContent = (parseInt(inputChapter) - 1);
+                    var indexContent = (parseInt(commandChapters) - 1);
                     if (indexContent > mangaChapterLists.length) {
                         message.channel.send(inputChapter + " out of index range. Please provide number between " + 1 + " to " + mangaChapterLists.length + ".Cancelling operation!");
                         return;
                     } 
-                }  
-            }
+                }
 
-            chapterArr = processChapters(collected.first().content);
+                let inputChapter1 = (parseInt(commandChapters) - 1);
+                //Read manga based on selected manga and chapters
+                message.channel.send("Trying to load manga " + mangaChapterLists[inputChapter1].get("urlChapter"));
+                message.channel.send("Buffering manga files " + mangaChapterLists[inputChapter1].get("titleChapter") + ". Now loading :zzz:")
+                        .then(async msg => {
+                            var mangaImageURL = await mangareader.loadMangaImageLink(mangaChapterLists[inputChapter1].get("urlChapter"), "searchURL");
+                            msg.delete();
 
-            console.log("Array length of chapters: " + chapterArr.length);
-            if (chapterArr == 'Range Chapter invalid.') {
-                message.channel.send("Range Chapter invalid. Aborting command");
-                return;
-            }
-            //split from above because there's problem when downloading batch manga
-            //download manga based on selected manga and chapters
-            for (let c = 0; c < chapterArr.length; c++) {
-                let inputChapter1 = (parseInt(chapterArr[c]) - 1);
-                message.channel.send("Trying to download " + mangaChapterLists[inputChapter1].get("urlChapter"));
-                message.channel.send("Generating and downloading manga files " + mangaChapterLists[inputChapter1].get("titleChapter") + ". Now loading :zzz:")
-                    .then(async msg => {
-                        await mangareader.loadMangaImage(mangaChapterLists[inputChapter1].get("urlChapter"), "searchURL");
-                        msg.delete();
-                        message.channel.send("Download manga " + mangaChapterLists[inputChapter1].get("titleChapter") + " has been finished!");
-                });
+                            let page = 1;
+                            let pages = mangaImageURL.length;
+                            //create message with pagination
+                            const embed = new Discord.MessageEmbed() // Define a new embed
+                            .setColor(0xffffff) // Set the color
+                            .setFooter(`Page ${page} of ${pages}, ${mangaImageURL.length} `)
+	                        .setImage(mangaImageURL[parseInt(page)])
+                            .setDescription("Page: " + page);
+
+                            message.channel.send(embed).then(msg => {
+
+                                msg.react('⬅').then( r => {
+                                    msg.react('➡')
+                            
+                                    // Filters
+                                    const backwardsFilter = (reaction, user) => reaction.emoji.name === '⬅' && user.id === message.author.id;
+                                    const forwardsFilter = (reaction, user) => reaction.emoji.name === '➡' && user.id === message.author.id;
+                            
+                                    const backwards = msg.createReactionCollector(backwardsFilter, {timer: 6000});
+                                    const forwards = msg.createReactionCollector(forwardsFilter, {timer: 6000});
+                            
+                                    //when click previous
+                                    backwards.on('collect', r => {
+                                        console.log("user click previous page");
+                                        if (page === 1) return;
+                                        page--;
+
+                                        console.log("URL manga: " + mangaImageURL[parseInt(page)]);
+                                        
+	                                    embed.setImage(mangaImageURL[parseInt(page)]);
+                                        embed.setDescription("Page: " + page);
+                                        embed.setFooter(`Page ${page} of ${pages}, ${mangaImageURL.length}`);
+                                        msg.edit(embed)
+                                    })
+                            
+                                    //when click next page
+                                    forwards.on('collect', r => {
+                                        console.log("user click next page");
+                                        if (page === pages.length) return;
+                                        page++;
+
+                                        console.log("URL manga: " + mangaImageURL[parseInt(page)]);
+	                                    embed.setImage(mangaImageURL[parseInt(page)]);
+                                        embed.setDescription("Page: " + page);
+                                        embed.setFooter(`Page ${page} of ${pages}, ${mangaImageURL.length}`);
+                                        msg.edit(embed)
+                                    })
+                                })
+                            });
+                            
+                    });
+                
+                console.log("END::Manga download command");
+            } else if(collected.first().content.startsWith(`${prefix}dl `)) {
+                var commandChapters = collected.first().content.substr(`${prefix}dl `.length);
+
+                //split user input based on ','/and '-'
+                let chapterArr = commandChapters.split(/[,-]+/);
+                for (let b = 0; b < chapterArr.length; b++) {
+                    console.log("Chapter of user input: " + chapterArr[b]);
+                    const inputChapter = chapterArr[b];
+                    //check if the input has non-number value
+                    if (isNaN(inputChapter)) {
+                        message.channel.send(inputChapter + " is not a number. Please provide number between " + 1 + " to " + mangaChapterLists.length + ".Cancelling operation!");
+                        return;
+                    } else {
+                        //check if the input has number that out of range
+                        var indexContent = (parseInt(inputChapter) - 1);
+                        if (indexContent > mangaChapterLists.length) {
+                            message.channel.send(inputChapter + " out of index range. Please provide number between " + 1 + " to " + mangaChapterLists.length + ".Cancelling operation!");
+                            return;
+                        } 
+                    }  
+                }
+
+                chapterArr = processChapters(collected.first().content);
+
+                console.log("Array length of chapters: " + chapterArr.length);
+                if (chapterArr == 'Range Chapter invalid.') {
+                    message.channel.send("Range Chapter invalid. Aborting command");
+                    return;
+                }
+                //split from above because there's problem when downloading batch manga
+                //download manga based on selected manga and chapters
+                for (let c = 0; c < chapterArr.length; c++) {
+                    let inputChapter1 = (parseInt(chapterArr[c]) - 1);
+                    message.channel.send("Trying to download " + mangaChapterLists[inputChapter1].get("urlChapter"));
+                    message.channel.send("Generating and downloading manga files " + mangaChapterLists[inputChapter1].get("titleChapter") + ". Now loading :zzz:")
+                        .then(async msg => {
+                            await mangareader.loadMangaImage(mangaChapterLists[inputChapter1].get("urlChapter"), "searchURL");
+                            msg.delete();
+                            message.channel.send("Download manga " + mangaChapterLists[inputChapter1].get("titleChapter") + " has been finished!");
+                    });
+                }
+                console.log("END::Manga download command");
+            } else {
+                message.channel.send('You need to provide manga title');
+                console.log("END::Search Manga command");
             }
     }).catch((error) => {
         console.log(error);
